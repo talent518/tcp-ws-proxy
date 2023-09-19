@@ -21,43 +21,56 @@ app.use(bodyParser.json({ limit: '16mb' }));
 
 const wsConns = {};
 
-app.get('/', (req, res)=>{
+app.get('/', (req, res) => {
 	res.type('application/json');
-	res.send(Object.keys(wsConns).map(addr=>{
-		return {addr, conns: wsConns[addr].wses};
+	res.send(Object.keys(wsConns).map(addr => {
+		return { addr, conns: wsConns[addr].wses };
 	}));
 });
 
-app.ws('/ws/:addr', (ws, req)=>{
+app.ws('/ws/:addr', (ws, req) => {
 	const addr = req.params.addr;
 	let wsConn;
-	if(addr in wsConns) {
+	if (addr in wsConns) {
 		wsConn = wsConns[addr];
+
+		if (wsConn.isConn && wsConn.sock) wsConn.sock.send('Connected to ' + addr + ' success\n');
 	} else {
 		const addrs = addr.split(':');
 		const host = addrs[0];
-	    const port = parseInt(addrs[1]);
+		const port = parseInt(addrs[1]);
 		const sock = new net.Socket();
 
-		wsConns[addr] = wsConn = {wses: [], sock};
-    
-	    sock.setEncoding('utf-8');
-		sock.connect(port, host, function() {
-			console.log('Connected to ' + host + ':' + port + ' success');
+		wsConns[addr] = wsConn = { wses: [], sock, isConn: false };
+
+		const send = function (data) {
+			wsConn.wses.forEach(c => c.send(data));
+		};
+
+		let timer = setTimeout(() => {
+			send('Connect to ' + addr + ' timeout\n');
+			sock.destroy();
+		}, 3000);
+
+		sock.setEncoding('utf-8');
+		sock.connect(port, host, function () {
+			wsConn.isConn = true;
+			send('Connected to ' + addr + ' success\n');
 		});
-		sock.on('data', function(data) {
+		sock.on('data', function (data) {
 			// process.stdout.write(data);
-			wsConn.wses.forEach(c=>c.send(data));
+			send(data);
 		});
-		sock.on('error', function(err) {
-			console.log('Error(' + host + ':' + port + '): ' + err.message);
+		sock.on('error', function (err) {
+			send('Error(' + addr + '): ' + err.message + '\n');
 		});
-		sock.on('close', function() {
+		sock.on('close', function () {
 			delete wsConn.sock;
+			wsConn.isConn = false;
 
-			console.log('Closed to ' + host + ':' + port + '\n');
+			send('Closed to ' + addr + '\n');
 
-			wsConn.wses.forEach(ws=>ws.close());
+			wsConn.wses.forEach(ws => ws.close());
 
 			sock.destroy();
 
@@ -66,16 +79,16 @@ app.ws('/ws/:addr', (ws, req)=>{
 	}
 	wsConn.wses.push(ws);
 
-	ws.on('message', function(data) {
+	ws.on('message', function (data) {
 		// process.stdout.write(data);
-		if(wsConn.sock) wsConn.sock.write(data);
+		if (wsConn.sock) wsConn.sock.write(data);
 	});
 
-	ws.on('close', function() {
+	ws.on('close', function () {
 		const i = wsConn.wses.indexOf(ws);
 		wsConn.wses.splice(i, 1);
-		if(!wsConn.wses.length) {
-			if(wsConn.sock) {
+		if (!wsConn.wses.length) {
+			if (wsConn.sock) {
 				wsConn.sock.destroy();
 				delete wsConn.sock;
 			}
@@ -105,7 +118,7 @@ const httpServer = http.createServer(app);
 WS(app, httpServer);
 httpServer.listen(HTTP_PORT, '0.0.0.0');
 httpServer.on('error', console.error);
-httpServer.on('listening', function() {
+httpServer.on('listening', function () {
 	console.log('Listen port is', HTTP_PORT);
 });
 
@@ -119,11 +132,11 @@ Layer.prototype.handle_request = function (req, res, next) {
 
 	if (isAsyncFunction(fn)) {
 		fn(req, res, next).then(r => {
-			if(r === undefined) return;
-			
+			if (r === undefined) return;
+
 			// console.log(r);
-			
-			if(typeof(r) === 'string') {
+
+			if (typeof (r) === 'string') {
 				res.send(r);
 			} else {
 				res.json(r);
