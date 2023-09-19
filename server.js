@@ -24,7 +24,7 @@ const wsConns = {};
 app.get('/', (req, res) => {
 	res.type('application/json');
 	res.send(Object.keys(wsConns).map(addr => {
-		return { addr, conns: wsConns[addr].wses };
+		return { addr, conns: wsConns[addr].wses.length };
 	}));
 });
 
