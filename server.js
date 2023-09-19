@@ -54,6 +54,9 @@ app.ws('/ws/:addr', (ws, req) => {
 
 		sock.setEncoding('utf-8');
 		sock.connect(port, host, function () {
+			clearInterval(timer);
+			timer = 0;
+			
 			wsConn.isConn = true;
 			send('Connected to ' + addr + ' success\n');
 		});
