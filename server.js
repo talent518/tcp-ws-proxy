@@ -25,7 +25,7 @@ app.get('/', (req, res) => {
 	res.type('application/json');
 	res.send(Object.keys(wsConns).map(addr => {
 		const wsConn = wsConns[addr];
-		return { addr, conns: wsConn.wses.length, infos: wsConn.wses.map(({headers})=>{return {id: headers.id, name: headers.name, ip: headers.ip};}) };
+		return { addr, conns: wsConn.wses.length, infos: wsConn.wses.map(({headers})=>{return {id: headers.id, name: headers.name, ip: headers.ip, username: headers.username};}) };
 	}));
 });
 
