@@ -33,15 +33,16 @@ app.ws('/ws/:addr', (ws, req) => {
 	let wsConn;
 	if (addr in wsConns) {
 		wsConn = wsConns[addr];
+		wsConn.wses.push(ws);
 
-		if (wsConn.isConn && wsConn.sock) wsConn.sock.send('Connected to ' + addr + ' success\n');
+		if (wsConn.isConn) ws.send('Connected to ' + addr + ' success\n');
 	} else {
 		const addrs = addr.split(':');
 		const host = addrs[0];
 		const port = parseInt(addrs[1]);
 		const sock = new net.Socket();
 
-		wsConns[addr] = wsConn = { wses: [], sock, isConn: false };
+		wsConns[addr] = wsConn = { wses: [ws], sock, isConn: false };
 
 		const send = function (data) {
 			wsConn.wses.forEach(c => c.send(data));
@@ -73,14 +74,13 @@ app.ws('/ws/:addr', (ws, req) => {
 
 			send('Closed to ' + addr + '\n');
 
-			wsConn.wses.forEach(ws => ws.close());
+			wsConn.wses.forEach(c => c.close());
 
 			sock.destroy();
 
 			delete wsConns[addr];
 		});
 	}
-	wsConn.wses.push(ws);
 
 	ws.on('message', function (data) {
 		// process.stdout.write(data);
