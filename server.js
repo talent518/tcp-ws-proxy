@@ -24,13 +24,16 @@ const wsConns = {};
 app.get('/', (req, res) => {
 	res.type('application/json');
 	res.send(Object.keys(wsConns).map(addr => {
-		return { addr, conns: wsConns[addr].wses.length };
+		const wsConn = wsConns[addr];
+		return { addr, conns: wsConn.wses.length, infos: wsConn.wses.map(({headers})=>{return {id: headers.id, name: headers.name, ip: headers.ip};}) };
 	}));
 });
 
 app.ws('/ws/:addr', (ws, req) => {
 	const addr = req.params.addr;
 	let wsConn;
+
+	ws.headers = req.headers;
 	if (addr in wsConns) {
 		wsConn = wsConns[addr];
 		wsConn.wses.push(ws);
@@ -42,7 +45,7 @@ app.ws('/ws/:addr', (ws, req) => {
 		const port = parseInt(addrs[1]);
 		const sock = new net.Socket();
 
-		wsConns[addr] = wsConn = { wses: [ws], sock, isConn: false };
+		wsConns[addr] = wsConn = { wses: [ws], sock, isConn: false};
 
 		const send = function (data) {
 			wsConn.wses.forEach(c => c.send(data));
